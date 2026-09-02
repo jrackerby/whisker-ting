@@ -57,6 +57,45 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # VOID -- NOT A PASS, AND NOT A FAILURE OF THIS REPO. Measured on the
+      # first run of this workflow: hacs/action reported <Validation hacsjson>
+      # and <Validation integration_manifest> failed, the latter with
+      # "expected a dictionary. Got None". Neither is about the files here.
+      # HACS fetches hacs.json and manifest.json from raw.githubusercontent.com
+      # (repositories/base.py get_hacs_json_raw, repositories/integration.py
+      # get_integration_manifest) through base.py async_download_file, which is
+      # called with headers=None -- no Authorization header on that path, ever.
+      # A private repository 404s there. Confirmed by hand against both this
+      # branch and master: 404 on each.
+      #
+      # That same unauthenticated fetch is what a LIVE HACS install uses, so it
+      # is not a CI artifact: HACS cannot install this repo while it is private.
+      # Reporting it as VOID rather than green keeps the distinction that
+      # matters -- the check did not run, so nothing was proven either way. It
+      # starts running by itself the moment the repository is made public.
+      # jrackerby/HA#483 carries that decision.
+      - name: VOID -- HACS validation cannot run against a private repository
+        if: ${{ github.event.repository.private }}
+        run: |
+          echo "::notice title=HACS validation VOID::this repository is private, so HACS cannot read it"
+          echo "HACS reads hacs.json and manifest.json from raw.githubusercontent.com with NO"
+          echo "Authorization header, in CI and in a live install alike, so a private repository"
+          echo "404s. This step is a VOID, not a pass: nothing about HACS compatibility was"
+          echo "verified here. See jrackerby/HA#483."
+
       - uses: hacs/action@main
+        if: ${{ !github.event.repository.private }}
         with:
           category: integration
+          # DEFAULT-STORE INCLUSION CHECKS, ignored deliberately. These are
+          # personal estate components installed as CUSTOM repositories; they
+          # will not be submitted to the HACS default store. None of hacs/action's
+          # validators run at install time either -- validate/manager.py's
+          # async_run_repository_checks returns immediately unless
+          # hacs.system.action -- so they gate store inclusion and nothing else.
+          # brands additionally needs artwork committed here or an accepted PR
+          # against home-assistant/brands; topics and license are repository
+          # metadata, not code, and are worth revisiting only if these repos
+          # ever go public (jrackerby/HA#483).
+          ignore: brands topics license

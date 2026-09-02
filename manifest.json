@@ -1,17 +1,17 @@
 {
   "domain": "whisker_ting",
   "name": "Whisker Ting",
-  "version": "0.1.0",
-  "config_flow": true,
-  "documentation": "https://github.com/jrackerby/whisker-ting",
-  "issue_tracker": "https://github.com/jrackerby/HA/issues",
-  "iot_class": "cloud_push",
-  "integration_type": "device",
   "codeowners": [
     "@jrackerby"
   ],
+  "config_flow": true,
   "dependencies": [],
+  "documentation": "https://github.com/jrackerby/whisker-ting",
+  "integration_type": "device",
+  "iot_class": "cloud_push",
+  "issue_tracker": "https://github.com/jrackerby/HA/issues",
   "requirements": [
     "msgpack>=1.0.0"
-  ]
+  ],
+  "version": "0.1.0"
 }
