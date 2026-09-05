@@ -35,8 +35,7 @@ copies the root into `/config/custom_components/whisker_ting/`.
 
 ## Development
 
-Issues and the work queue live in **[jrackerby/HA](https://github.com/jrackerby/HA/issues)**,
-not here — one queue for the whole estate.
+Issues and feature requests: **[jrackerby/whisker-ting/issues](https://github.com/jrackerby/whisker-ting/issues)**.
 
 CI runs [hassfest](https://developers.home-assistant.io/blog/2020/04/16/hassfest)
 and HACS validation on every push. hassfest scans `custom_components/*` and

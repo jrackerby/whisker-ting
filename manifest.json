@@ -9,7 +9,7 @@
   "documentation": "https://github.com/jrackerby/whisker-ting",
   "integration_type": "device",
   "iot_class": "cloud_push",
-  "issue_tracker": "https://github.com/jrackerby/HA/issues",
+  "issue_tracker": "https://github.com/jrackerby/whisker-ting/issues",
   "requirements": [
     "msgpack>=1.0.0"
   ],
