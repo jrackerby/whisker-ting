@@ -1,0 +1,59 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect Whisker Ting",
+        "description": "Sign in with the same account used in the Ting mobile app.",
+        "data": {
+          "username": "Email",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate Whisker Ting",
+        "data": {
+          "username": "Email",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid email or password.",
+      "cannot_connect": "Could not reach the Whisker Ting service.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This account is already configured.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Whisker Ting options",
+        "data": {
+          "scan_interval": "Poll interval (seconds)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "voltage": { "name": "Voltage" },
+      "voltage_hi": { "name": "Voltage high" },
+      "voltage_lo": { "name": "Voltage low" },
+      "average_peaks_max": { "name": "Average peaks max" },
+      "firmware_version": { "name": "Firmware version" },
+      "efh_message": { "name": "Electrical fault hazard status" },
+      "ufh_message": { "name": "Unsafe frequency hazard status" }
+    },
+    "binary_sensor": {
+      "fire_hazard": { "name": "Fire hazard" },
+      "electrical_fault_hazard": { "name": "Electrical fault hazard" },
+      "unsafe_frequency_hazard": { "name": "Unsafe frequency hazard" },
+      "frozen_pipe": { "name": "Frozen pipe" },
+      "learning_mode": { "name": "Learning mode" },
+      "hvac_verified": { "name": "HVAC verified" }
+    }
+  }
+}
