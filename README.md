@@ -27,12 +27,6 @@ The integration lives at the repository **root**, not under
 `custom_components/`. `hacs.json` declares `content_in_root: true`, so HACS
 copies the root into `/config/custom_components/whisker_ting/`.
 
-> **That path has two owners today.** `jrackerby/HA` also submodules this repo
-> as `custom_components/whisker_ting` and writes the same directory on deploy. Until
-> that cutover is settled (jrackerby/HA#483), a HACS install and a `git push ha
-> master` will fight over it — install here only if you are not deploying this
-> component from `jrackerby/HA`.
-
 ## Development
 
 Issues and feature requests: **[jrackerby/whisker-ting/issues](https://github.com/jrackerby/whisker-ting/issues)**.
@@ -41,7 +35,7 @@ CI runs [hassfest](https://developers.home-assistant.io/blog/2020/04/16/hassfest
 and HACS validation on every push. hassfest scans `custom_components/*` and
 takes no path argument, so `.github/workflows/validate.yml` stages this repo
 into that layout before invoking it; the repo itself stays root-layout because
-`jrackerby/HA` submodules it at that path.
+`hacs.json` declares `content_in_root: true`.
 
 Pushing a `manifest.json` whose `version` has changed tags and publishes a
 release automatically — that is the only supported way to cut one.
