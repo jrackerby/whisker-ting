@@ -21,11 +21,11 @@ found by scanning." websocket.py tries structured field names first, falls
 back to positional floats, and logs at WARNING when it has to guess, so a
 live install surfaces which path it took instead of silently trusting one.
 
-BEFORE THIS DOMAIN IS TRUSTED FOR household_state OR fls_monitoring: add it
-to a session's estate check, watch the log for the WARNING above at least
-once, and confirm sensor.<x>_voltage moves under real load. Until then
-fls_monitoring's Ting row stays on device_tracker reachability only (see its
-own comment) - this integration does not replace that on its own.
+BEFORE ANYTHING SAFETY-RELATED DEPENDS ON THESE ENTITIES: watch the log for
+the WARNING above at least once, and confirm sensor.<x>_voltage moves under
+real load. Until both are seen, treat the hazard flags as unproven on your
+account and keep whatever reachability check you already had - this
+integration does not replace one on its own.
 """
 
 from __future__ import annotations
