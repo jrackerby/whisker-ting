@@ -30,8 +30,6 @@ integration does not replace one on its own.
 
 from __future__ import annotations
 
-from datetime import timedelta
-
 DOMAIN = "whisker_ting"
 
 # AWS Cognito - one user pool for the whole Whisker/Ting product, same
@@ -53,8 +51,6 @@ DEFAULT_SCAN_INTERVAL = 60
 MIN_SCAN_INTERVAL = 30
 MAX_SCAN_INTERVAL = 3600
 CONF_SCAN_INTERVAL = "scan_interval"
-
-UPDATE_INTERVAL = timedelta(seconds=DEFAULT_SCAN_INTERVAL)
 
 # Same reasoning as host_monitor/kiosk_pi: a transient miss must not read as
 # a health problem before it has actually persisted.

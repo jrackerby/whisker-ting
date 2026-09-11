@@ -1,7 +1,10 @@
 """ASP.NET Core SignalR MessagePack hub protocol - framing and encoding.
 
-Pure and network-free: bytes in, bytes/objects out, so tools/
-test_whisker_ting_signalr.py covers it without a live connection.
+Pure and network-free: bytes in, bytes/objects out, so it is coverable
+without a live connection. THERE IS NO SUCH TEST HERE - this header used to
+name `tools/test_whisker_ting_signalr.py` in jrackerby/HA, deleted with that
+repo's config surface (HA@1cc69bc6, GH-711) and never carried across in the
+extraction. Restoring it is #9.
 
 Spec: aspnetcore SignalR's "Binary Message Framing Format" - every message
 on a binary transport, WebSocket included, is preceded by a length prefix

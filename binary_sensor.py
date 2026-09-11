@@ -19,6 +19,10 @@ from .api import DeviceState
 from .coordinator import WhiskerDataUpdateCoordinator
 from .entity import WhiskerTingEntity
 
+# Read-only entities off one shared coordinator: nothing here talks to the
+# cloud per entity, so there is no write to serialise.
+PARALLEL_UPDATES = 0
+
 
 @dataclass(frozen=True, kw_only=True)
 class WhiskerBinarySensorDescription(BinarySensorEntityDescription):
