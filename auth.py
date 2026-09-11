@@ -4,8 +4,14 @@ Standard algorithm, not vendor-specific to Whisker/Ting - the same group
 parameters and derivation steps as every Cognito user pool (see AWS's own
 `amazon-cognito-identity-js` and the widely-used `pycognito`/`warrant`
 Python ports). Pure and network-adjacent-only: the crypto steps take no
-HomeAssistant imports and are covered by tools/test_whisker_ting_srp.py
-against fixed vectors, independent of any live Cognito call.
+HomeAssistant imports, so they are testable against fixed vectors with no
+live Cognito call.
+
+THERE IS NO SUCH TEST HERE. This header used to name
+`tools/test_whisker_ting_srp.py` in jrackerby/HA; that file was added with
+the component (HA@beacbba3) and deleted when that repo retired its config
+surface (HA@1cc69bc6, GH-711), and the extraction into this repo never
+carried it across. Restoring it is #9.
 """
 
 from __future__ import annotations

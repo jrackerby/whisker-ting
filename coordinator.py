@@ -1,6 +1,7 @@
 """Data coordinator for Whisker Ting.
 
-Two tiers: a REST poll on UPDATE_INTERVAL for device/hazard state, and a
+Two tiers: a REST poll for device/hazard state on the entry's own
+`scan_interval` option (DEFAULT_SCAN_INTERVAL when unset), and a
 persistent SignalR websocket per device for real-time voltage - opened once
 after the first successful REST fetch and left running, reconnecting on its
 own (see websocket.py). Same "never raise UpdateFailed on a transient miss"
@@ -25,7 +26,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api import DeviceState, VoltageReading, WhiskerApiClient, WhiskerApiError, WhiskerAuthError
-from .const import DOMAIN, TRANSPORT_FAIL_DWELL, UPDATE_INTERVAL
+from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN, TRANSPORT_FAIL_DWELL
 from .websocket import VoltageData, WhiskerWebSocketManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,7 +40,19 @@ class WhiskerDataUpdateCoordinator(DataUpdateCoordinator[dict[str, DeviceState]]
         client: WhiskerApiClient,
         session: aiohttp.ClientSession,
     ) -> None:
-        super().__init__(hass, _LOGGER, name=f"{DOMAIN}:{entry.entry_id}", update_interval=UPDATE_INTERVAL)
+        # The options flow has always offered scan_interval and nothing ever
+        # read it back - the poll ran at a module constant whatever the user
+        # set. The update listener in __init__.py reloads the entry on an
+        # options change, which rebuilds this coordinator, so reading it here
+        # is the whole of what makes that control real.
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=f"{DOMAIN}:{entry.entry_id}",
+            update_interval=timedelta(
+                seconds=entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            ),
+        )
         self.entry = entry
         self.client = client
         self._session = session

@@ -1,0 +1,229 @@
+# Home Assistant integration quality scale — gap list for whisker_ting.
+#
+# WHY THIS FILE EXISTS AND WHAT IT IS NOT. LAW §15 makes the quality scale the
+# build standard for every custom_components/* repo in this estate: Bronze is
+# the floor for anything shipped, Silver the target for anything reading a
+# device, a service, or another integration's entities. This is a `device`
+# integration on `cloud_push` against a vendor cloud, so **Silver is the
+# target** — and it is not met yet. Every row below is a judgement made by
+# reading this repo's code, not a claim of a tier.
+#
+# NOTHING VALIDATES THIS FILE. hassfest's `validate_iqs_file` opens with
+# `if not integration.core: return`, so a custom component's quality_scale.yaml
+# is never read — while manifest.json's schema still *accepts* a
+# `quality_scale` key. A tier declared there would be a self-claim with no gate
+# behind it, green forever, so **manifest.json declares none** and will not
+# until the rows below say it has been earned. The rule names and tiers here
+# were read from `ALL_RULES` in home-assistant/core's
+# `script/hassfest/quality_scale.py`, never from the docs page, which names the
+# tiers and not the rules. `.github/scripts/check_quality_scale.py` checks the
+# row set against that list on every push, so the file cannot silently drift
+# out of date with the standard it is measured against. That script lives under
+# `.github/` rather than in a `tools/` directory on purpose: hacs.json declares
+# `content_in_root`, so anything at the root is copied into every user's
+# custom_components directory, and CI tooling has no business shipping there.
+#
+# Gold and Platinum rows are carried because the schema requires every rule
+# name; they are judged honestly but are not this repo's near-term work.
+
+rules:
+  # ------------------------------------------------------------------ BRONZE
+  action-setup:
+    status: exempt
+    comment: >-
+      Registers no actions. The integration is read-only: there is nothing to
+      command on a Ting, which reports and does not actuate.
+  appropriate-polling: done
+  brands:
+    status: todo
+    comment: >-
+      No logo or icon in home-assistant/brands, and none committed here.
+      validate.yml passes `ignore: brands` to hacs/action for exactly this
+      reason — until a brands PR is accepted the check can only fail, and a
+      gate that can only fail is not a gate. Re-enable it the day one lands.
+  common-modules: done
+  config-flow: done
+  config-flow-test-coverage:
+    status: todo
+    comment: >-
+      There are no tests in this repo at all. See #9 — the unit suite that
+      covered auth.py and signalr_protocol.py was deleted with jrackerby/HA's
+      config surface (GH-711) and never carried across in the extraction.
+      Config-flow coverage was never written even then.
+  dependency-transparency:
+    status: done
+    comment: >-
+      One third-party requirement, `msgpack`, open source and published on
+      PyPI with no build step of its own. It is declared as `>=1.0.0` rather
+      than pinned: this is a HACS component installed against whatever core
+      already resolved, so pinning here would fight core's own resolver rather
+      than reproduce anything.
+  docs-actions:
+    status: exempt
+    comment: Registers no actions, so there are none to document.
+  docs-conditions:
+    status: exempt
+    comment: Registers no conditions.
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  docs-triggers:
+    status: exempt
+    comment: Registers no triggers.
+  entity-event-setup:
+    status: done
+    comment: >-
+      Entities subscribe through CoordinatorEntity, which attaches in
+      async_added_to_hass and detaches on removal. The SignalR sockets are
+      owned by the coordinator, not by any entity, so no entity holds a
+      subscription of its own that could outlive it.
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data:
+    status: done
+    comment: >-
+      The coordinator is stored on `entry.runtime_data` and the typed alias
+      `WhiskerTingConfigEntry` exists in __init__.py. Honest qualifier: the two
+      platform `async_setup_entry` signatures still annotate a bare ConfigEntry
+      rather than that alias, so the typing is looser than core's convention
+      even though the storage is correct.
+  test-before-configure:
+    status: todo
+    comment: >-
+      The user step validates Cognito plus one REST GET and never touches the
+      SignalR hub, which is a different endpoint on a different credential and
+      403s without its own Origin header. An entry can be created green while
+      the stream cannot connect at all. See #10 — this is LAW §9's setup-check
+      rule: a check on the wrong channel certifies nothing, and certifies it
+      green.
+  test-before-setup:
+    status: done
+    comment: >-
+      async_config_entry_first_refresh() gates setup. A rejected credential
+      raises ConfigEntryAuthFailed into the reauth flow; a transient REST
+      failure with no prior data re-raises and lands as ConfigEntryNotReady.
+  unique-config-entry:
+    status: done
+    comment: The Whisker user id is the unique id; a second entry for the same account aborts.
+
+  # ------------------------------------------------------------------ SILVER
+  action-exceptions:
+    status: exempt
+    comment: Registers no actions.
+  config-entry-unloading:
+    status: done
+    comment: >-
+      async_unload_entry unloads both platforms and, only on success, shuts the
+      coordinator down — which cancels every reconnect task and closes every
+      SignalR socket before the entry goes.
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-unavailable:
+    status: todo
+    comment: >-
+      The coordinator carries the last good payload forward on every REST
+      failure, with no ceiling, so last_update_success never goes false and a
+      fire-hazard flag keeps publishing the last state it saw as though it were
+      current. See #11. LAW §15's "apply a rule where it governs" puts this
+      squarely in scope here — unlike household_state's never-raise contract,
+      this integration has a service to lose.
+  integration-owner: done
+  log-when-unavailable:
+    status: todo
+    comment: >-
+      Half satisfied. The REST half is correct — one warning at the dwell, one
+      info on recovery, gated on an exact count so it cannot repeat. The
+      websocket half is not: websocket.py logs on every failed connect and
+      every reconnect attempt, so a hub outage writes a line per backoff cycle
+      for as long as it lasts. See #11.
+  parallel-updates:
+    status: done
+    comment: >-
+      PARALLEL_UPDATES = 0 on both platforms. Every entity reads one shared
+      coordinator and none of them writes, so there is nothing to serialise.
+  reauthentication-flow:
+    status: done
+    comment: >-
+      ConfigEntryAuthFailed from the coordinator opens async_step_reauth, which
+      revalidates against Cognito before updating the entry in place.
+  test-coverage:
+    status: todo
+    comment: No tests in this repo. See #9.
+
+  # -------------------------------------------------------------------- GOLD
+  devices:
+    status: done
+    comment: One device per Ting, DeviceInfo defined once in entity.py.
+  diagnostics: todo
+  discovery:
+    status: exempt
+    comment: >-
+      Nothing to discover. The plug never speaks on the local network — it has
+      no documented local API at all — and devices are enumerated from the
+      cloud account after sign-in.
+  discovery-update-info:
+    status: exempt
+    comment: Same reason as `discovery`; there is no local endpoint whose address could change.
+  docs-data-update: done
+  docs-examples: todo
+  docs-known-limitations: done
+  docs-supported-devices: done
+  docs-supported-functions: done
+  docs-troubleshooting: todo
+  docs-use-cases: todo
+  dynamic-devices:
+    status: todo
+    comment: >-
+      Both platforms build their entity list once at setup, so a Ting added to
+      the account later never appears until the entry is reloaded by hand.
+      See #12.
+  entity-category: done
+  entity-device-class: done
+  entity-disabled-by-default:
+    status: done
+    comment: >-
+      The three noisy diagnostic voltage sensors and average_peaks_max are
+      registry-disabled by default; the hazard flags are not.
+  entity-translations: done
+  exception-translations:
+    status: todo
+    comment: Exceptions carry plain English strings, not translation keys.
+  icon-translations:
+    status: todo
+    comment: No icons.json; entities fall back to their device-class icons.
+  reconfiguration-flow:
+    status: todo
+    comment: >-
+      No async_step_reconfigure. Changing the account means deleting the entry
+      and adding it again; reauth covers a changed password but not a changed
+      account.
+  repair-issues:
+    status: todo
+    comment: >-
+      Nothing raises a repair. The clearest candidate is the positional-float
+      fallback in websocket.py, which today only logs a warning that a live
+      install has to be reading the log to notice.
+  stale-devices:
+    status: todo
+    comment: >-
+      A device removed from the Whisker account leaves its registry row behind
+      forever; its entities merely go unavailable. See #12.
+
+  # ---------------------------------------------------------------- PLATINUM
+  async-dependency:
+    status: done
+    comment: >-
+      All I/O is aiohttp. The one third-party requirement, msgpack, is a codec
+      rather than an I/O library — it does no blocking work and there is no
+      sync client anywhere to wrap.
+  inject-websession:
+    status: done
+    comment: >-
+      async_get_clientsession(hass) is resolved once in async_setup_entry and
+      passed into the REST client, the Cognito client and the socket manager.
+      Nothing constructs a session of its own.
+  strict-typing:
+    status: todo
+    comment: >-
+      No py.typed and no mypy in CI. Annotations are broadly present but
+      unproven, and api.py carries three `type: ignore` comments.

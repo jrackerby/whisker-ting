@@ -62,6 +62,31 @@ jobs:
 
       - uses: home-assistant/actions/hassfest@master
 
+  # quality_scale.yaml has NO gate of its own anywhere else. hassfest's
+  # validate_iqs_file returns immediately unless integration.core, so a custom
+  # component's gap list is never read -- it would drift out of date with the
+  # standard the moment core adds or renames a rule, and nothing would say so.
+  quality-scale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - run: pip install pyyaml
+
+      # The self-test runs FIRST and in the same job. A comparison nobody has
+      # watched fail is not evidence that it can, and this one is the only
+      # thing standing behind the file.
+      - name: prove the check can fail
+        run: python3 .github/scripts/check_quality_scale.py --self-test
+
+      - name: check the gap list against home-assistant/core
+        run: python3 .github/scripts/check_quality_scale.py
+
   hacs:
     runs-on: ubuntu-latest
     timeout-minutes: 15

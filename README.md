@@ -61,9 +61,27 @@ One device per Ting on the account.
 
 ## Configuration
 
-Config flow. Required: username, password, and a scan interval.
+**Setup** asks for two things, and only two: the **email** and **password** of
+the Ting account. There is no separate integration credential — this signs in
+as the mobile app does. One config entry per Whisker account; a second attempt
+with the same account aborts.
+
+**Options** (*Settings → Devices & Services → Whisker Ting → Configure*) carry
+one setting: **poll interval**, 30–3600 seconds, default 60. It governs the
+REST poll for hazard and device state. Live voltage arrives on the SignalR
+socket as it happens and is not affected by it, which is why the default is
+unhurried. Changing it reloads the entry.
 
 Requires `msgpack`, declared in the manifest and installed by Home Assistant.
+
+## Removal
+
+*Settings → Devices & Services → Whisker Ting → ⋮ → Delete*. That unloads the
+platforms, closes every SignalR socket and drops the entry, its devices and its
+entities. The stored credentials go with it. Nothing is left behind on disk and
+nothing is changed on the Whisker account — the plug carries on reporting to
+Whisker Labs exactly as before. To remove the code as well, uninstall the
+repository in HACS and restart.
 
 ## Install
 
@@ -79,8 +97,17 @@ copies the root into `/config/custom_components/whisker_ting/`.
 
 Issues and feature requests: **[jrackerby/whisker-ting/issues](https://github.com/jrackerby/whisker-ting/issues)**.
 
+`quality_scale.yaml` is this integration's gap list against the
+[HA integration quality scale](https://developers.home-assistant.io/docs/core/integration-quality-scale/) —
+every rule marked done, todo or exempt with its reason. **The manifest declares
+no tier**, deliberately: hassfest never reads a custom component's
+`quality_scale.yaml`, so a tier claimed in the manifest has no gate behind it.
+Read the rows instead. Silver is the target and is not met yet; the open
+`todo`s are tracked as issues.
+
 CI runs [hassfest](https://developers.home-assistant.io/blog/2020/04/16/hassfest)
-and HACS validation on every push. hassfest scans `custom_components/*` and
+and HACS validation on every push, plus a check that `quality_scale.yaml`'s
+rows still match the rule list in `home-assistant/core`. hassfest scans `custom_components/*` and
 takes no path argument, so `.github/workflows/validate.yml` stages this repo
 into that layout before invoking it; the repo itself stays root-layout because
 `hacs.json` declares `content_in_root: true`.

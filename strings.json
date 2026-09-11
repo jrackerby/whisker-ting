@@ -7,6 +7,10 @@
         "data": {
           "username": "Email",
           "password": "Password"
+        },
+        "data_description": {
+          "username": "The email address on the Ting account. Whisker Labs has no separate integration credential.",
+          "password": "The Ting account password. It is kept in the config entry and replayed to AWS Cognito whenever the token needs refreshing."
         }
       },
       "reauth_confirm": {
@@ -14,6 +18,10 @@
         "data": {
           "username": "Email",
           "password": "Password"
+        },
+        "data_description": {
+          "username": "The email address on the Ting account.",
+          "password": "The current Ting account password. Cognito rejected the stored one."
         }
       }
     },
@@ -33,6 +41,9 @@
         "title": "Whisker Ting options",
         "data": {
           "scan_interval": "Poll interval (seconds)"
+        },
+        "data_description": {
+          "scan_interval": "How often to poll the REST endpoint for hazard and device state, between 30 and 3600 seconds. Live voltage arrives on its own socket as it happens and is not affected by this."
         }
       }
     }
