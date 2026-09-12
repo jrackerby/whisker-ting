@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/jrackerby/whisker-ting/master/brand/icon.png" alt="Ting" width="96" align="right">
+
 # Whisker Ting
 
 Home Assistant integration for the **Ting** electrical fire sensor by Whisker
@@ -92,6 +94,32 @@ category **Integration**. Install, restart Home Assistant, then add it under
 The integration lives at the repository **root**, not under
 `custom_components/`. `hacs.json` declares `content_in_root: true`, so HACS
 copies the root into `/config/custom_components/whisker_ting/`.
+
+### Brand images
+
+`brand/` carries the Ting mark that Home Assistant and HACS show for this
+integration. **The directory name is `brand`, singular, and under
+`content_in_root: true` it belongs at the repository root** — HACS copies it
+to `custom_components/whisker_ting/brand/`, which is the one path both
+consumers read:
+
+- Home Assistant core (2026.3.0+) gates on `"brand" in` the component's
+  top-level files (`loader.Integration.has_branding`) and serves
+  `<component>/brand/<image>` from `/api/brands/integration/whisker_ting/`,
+  **ahead of** `brands.home-assistant.io`. No manifest key, no upstream PR.
+- HACS's `brands` validator looks for exactly `brand/icon.png` — at the repo
+  root when `content_in_root` is set, under the content path otherwise — and
+  only falls back to the brands repository when that file is absent.
+
+Any other spelling (`brands/`, `assets/`, an `icon.png` at the root) fails
+**silently**: nothing errors, HA serves the CDN placeholder, and the HACS
+check reports the repository as missing from the brands repository rather
+than as misfiled.
+
+`icon.png` is 256×256 and `icon@2x.png` is 512×512, the sizes the brands
+specification requires. `logo*.png` and the `dark_*` variants are omitted on
+purpose: core's own fallback chain resolves each of them back to `icon.png`,
+and the mark reads correctly on a light and a dark ground alike.
 
 ## Development
 
