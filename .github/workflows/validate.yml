@@ -133,7 +133,11 @@ jobs:
           # repo had neither. Both are set now, so both are ENFORCED -- going
           # on ignoring a check that would pass is how a gate stops being one.
           #
-          # `brands` stays ignored: it needs either brand/icon.png committed
-          # here or an accepted PR against home-assistant/brands, and until one
-          # of those exists the check can only ever fail.
-          ignore: brands
+          # `brands` USED TO BE IGNORED here, for want of an asset. `brand/`
+          # now carries icon.png at the repository root, which is the exact
+          # path hacs/integration's brands validator reads when
+          # content_in_root is set, so the check can pass and is no longer
+          # ignored. If it ever goes red, read the path before the asset:
+          # a rename to brands/ or a move under a subdirectory fails this
+          # check with a message about the brands REPOSITORY, which reads
+          # like a missing upstream PR rather than a misfiled file.
