@@ -26,41 +26,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  hassfest:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      # Into a subdirectory ON PURPOSE. The step below builds the layout
-      # hassfest expects AT THE WORKSPACE ROOT, and it cannot do that if the
-      # repo is already checked out there.
-      - uses: actions/checkout@v4
-        with:
-          path: src
-
-      # WHY THIS STAGING STEP EXISTS. home-assistant/actions/hassfest takes no
-      # path input -- it runs the hassfest image against ${{ github.workspace }}
-      # and scans custom_components/*. This repo keeps its integration at the
-      # ROOT (hacs.json content_in_root: true), which is the layout HACS
-      # installs from. Handed the repo as-is, hassfest finds zero integrations.
-      # So build the HA layout here rather than restructure the repo and break
-      # the way HACS installs it.
-      - name: stage the custom_components layout hassfest scans
-        run: |
-          mkdir -p "custom_components/$DOMAIN"
-          # cp/rm, not rsync: rsync is present on today's ubuntu-latest but is
-          # not part of any image guarantee, and a staging step that dies on a
-          # missing tool is a gate that silently stops running.
-          cp -a src/. "custom_components/$DOMAIN/"
-          rm -rf "custom_components/$DOMAIN/.git" "custom_components/$DOMAIN/.github"
-          # A gate that could not run is not a pass. If the copy above ever
-          # moves nothing, hassfest validates an empty tree and reports green
-          # over an integration it never opened -- so assert the staged
-          # manifest by hand before handing it over.
-          test -f "custom_components/$DOMAIN/manifest.json" \
-            || { echo "CANNOT RUN: staging produced no manifest.json -- hassfest would pass vacuously"; exit 1; }
-          echo "staged $(find "custom_components/$DOMAIN" -type f | wc -l) files"
-
-      - uses: home-assistant/actions/hassfest@master
+  # hassfest, hacs and the shared tests/imports jobs run in
+  # jrackerby/gha-workflows validate-integration.yml (workflow_call);
+  # master's required contexts are "validate / <job>" (jrackerby/HA#821).
+  validate:
+    uses: jrackerby/gha-workflows/.github/workflows/validate-integration.yml@master
+    with:
+      domain: "whisker_ting"
+      public: true
+      test-requirements: "tests/requirements-test.txt"
+      test-command: "cd tests && python3 -m pytest . -q"
+      run-imports: false
 
   # quality_scale.yaml has NO gate of its own anywhere else. hassfest's
   # validate_iqs_file returns immediately unless integration.core, so a custom
@@ -86,94 +62,3 @@ jobs:
 
       - name: check the gap list against home-assistant/core
         run: python3 .github/scripts/check_quality_scale.py
-
-  # This repository had ZERO tests. auth.py and signalr_protocol.py were written
-  # with unit suites -- tools/test_whisker_ting_srp.py and
-  # tools/test_whisker_ting_signalr.py in jrackerby/HA -- which were deleted
-  # when that repo retired its config surface (HA@1cc69bc6, GH-711) and never
-  # carried across in the extraction. Both module headers went on citing them
-  # by path. They are restored under tests/ and this is the job that runs them.
-  tests:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          # 3.12+ is not optional: __init__.py uses a PEP 695 `type` statement,
-          # and pytest imports it (see the working-directory note below).
-          python-version: "3.13"
-
-      # LAW §15: the declaration lives BESIDE the suite and CI installs from
-      # THAT file. A list pasted in here would be a second copy, stale on the
-      # next import added, and its failure would read as a broken test rather
-      # than a missing declaration. tests/test_requirements_declared.py checks
-      # by AST that this file still covers what the suite imports.
-      - run: pip install -r tests/requirements-test.txt
-
-      # RUN FROM INSIDE tests/, NOT FROM THE ROOT. hacs.json sets
-      # content_in_root, so the repository root holds __init__.py and IS a
-      # Python package. pytest turns any collected directory carrying an
-      # __init__.py into a Package node and imports it during setup, so a run
-      # rooted at the repo imports the integration's __init__.py, which imports
-      # homeassistant, which is not installed here -- 20 collection errors that
-      # say nothing about the code. Measured: --import-mode=importlib does NOT
-      # avoid it; only starting collection below the root does.
-      - name: run the unit suite
-        working-directory: tests
-        run: python3 -m pytest . -q
-  hacs:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-
-      # VOID -- NOT A PASS, AND NOT A FAILURE OF THIS REPO. Measured on the
-      # first run of this workflow: hacs/action reported <Validation hacsjson>
-      # and <Validation integration_manifest> failed, the latter with
-      # "expected a dictionary. Got None". Neither is about the files here.
-      # HACS fetches hacs.json and manifest.json from raw.githubusercontent.com
-      # (repositories/base.py get_hacs_json_raw, repositories/integration.py
-      # get_integration_manifest) through base.py async_download_file, which is
-      # called with headers=None -- no Authorization header on that path, ever.
-      # A private repository 404s there. Confirmed by hand against both this
-      # branch and master: 404 on each.
-      #
-      # That same unauthenticated fetch is what a LIVE HACS install uses, so it
-      # is not a CI artifact: HACS cannot install this repo while it is private.
-      # Reporting it as VOID rather than green keeps the distinction that
-      # matters -- the check did not run, so nothing was proven either way. It
-      # starts running by itself the moment the repository is made public.
-      - name: VOID -- HACS validation cannot run against a private repository
-        if: ${{ github.event.repository.private }}
-        run: |
-          echo "::notice title=HACS validation VOID::this repository is private, so HACS cannot read it"
-          echo "HACS reads hacs.json and manifest.json from raw.githubusercontent.com with NO"
-          echo "Authorization header, in CI and in a live install alike, so a private repository"
-          echo "404s. This step is a VOID, not a pass: nothing about HACS compatibility was"
-          echo "verified here."
-
-      - uses: hacs/action@main
-        if: ${{ !github.event.repository.private }}
-        with:
-          category: integration
-          # These are DEFAULT-STORE INCLUSION checks. None of hacs/action's
-          # validators run at install time -- validate/manager.py's
-          # async_run_repository_checks returns immediately unless
-          # hacs.system.action -- so they gate store inclusion, not whether a
-          # custom-repository install works. They are still worth running: they
-          # are the only automated read on this repo's public presentation.
-          #
-          # `topics` and `license` used to be ignored here because a private
-          # repo had neither. Both are set now, so both are ENFORCED -- going
-          # on ignoring a check that would pass is how a gate stops being one.
-          #
-          # `brands` USED TO BE IGNORED here, for want of an asset. `brand/`
-          # now carries icon.png at the repository root, which is the exact
-          # path hacs/integration's brands validator reads when
-          # content_in_root is set, so the check can pass and is no longer
-          # ignored. If it ever goes red, read the path before the asset:
-          # a rename to brands/ or a move under a subdirectory fails this
-          # check with a message about the brands REPOSITORY, which reads
-          # like a missing upstream PR rather than a misfiled file.
