@@ -27,22 +27,14 @@ on one, and edit it when it stops being true.
 
 ## hassfest and HACS against this repo
 
-- **hassfest takes no path input** — it scans `custom_components/*` at
-  `${{ github.workspace }}`. With the integration at the root, handing it the
-  repo as-is finds zero integrations and reports green over nothing.
-  `validate.yml` checks out to `src/` and stages the layout, then asserts the
-  staged `manifest.json` exists so a copy that moved nothing cannot pass
-  vacuously.
-- **HACS reads `hacs.json` and `manifest.json` from raw.githubusercontent with
-  NO Authorization header**, in CI and in a live install alike, so a private
-  repository 404s as "invalid hacs.json". `validate.yml` reports that as a
-  VOID, not a pass.
-- **`brand/` is singular and belongs at the repository root here.** Under
-  `content_in_root` HACS copies it to `custom_components/whisker_ting/brand/`,
-  which is the one path both HACS's `brands` validator and core's
-  `/api/brands/integration/` route read. A rename to `brands/` fails with a
-  message about the brands REPOSITORY, which reads like a missing upstream PR
-  rather than a misfiled file.
+- hassfest takes no path input (`jrackerby/HA` `tools/work_docs/TOOLS.md`,
+  "Landing a branch"): `validate.yml` checks out to `src/`, stages the layout
+  and asserts the staged `manifest.json` exists.
+- HACS reaches only a public repo (`jrackerby/HA` LAW §15); `validate.yml`
+  reports the private-repo 404 as a VOID, not a pass.
+- `brand/` is singular and belongs at the repository root here, where
+  `content_in_root` copies it to the one path both HACS's `brands` validator
+  and core read (`jrackerby/HA` `tools/work_docs/TOOLS.md` carries the trap).
 
 ## Releases
 
