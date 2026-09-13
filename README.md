@@ -144,18 +144,16 @@ Issues and feature requests: **[jrackerby/whisker-ting/issues](https://github.co
 
 `quality_scale.yaml` is this integration's gap list against the
 [HA integration quality scale](https://developers.home-assistant.io/docs/core/integration-quality-scale/) —
-every rule marked done, todo or exempt with its reason. **The manifest declares
-no tier**, deliberately: hassfest never reads a custom component's
-`quality_scale.yaml`, so a tier claimed in the manifest has no gate behind it.
-Read the rows instead. Silver is the target and is not met yet; the open
-`todo`s are tracked as issues.
+every rule marked done, todo or exempt with its reason. The manifest declares
+no tier, deliberately (`jrackerby/HA` LAW §15). Silver is the target and is not
+met yet; the open `todo`s are tracked as issues.
 
 CI runs [hassfest](https://developers.home-assistant.io/blog/2020/04/16/hassfest)
 and HACS validation on every push, plus a check that `quality_scale.yaml`'s
-rows still match the rule list in `home-assistant/core`. hassfest scans `custom_components/*` and
-takes no path argument, so `.github/workflows/validate.yml` stages this repo
-into that layout before invoking it; the repo itself stays root-layout because
-`hacs.json` declares `content_in_root: true`.
+rows still match the rule list in `home-assistant/core`. `validate.yml` stages
+the repo into the layout hassfest scans (`jrackerby/HA` `tools/work_docs/TOOLS.md`
+carries why); the repo itself stays root-layout because `hacs.json` declares
+`content_in_root: true`.
 
 Pushing a `manifest.json` whose `version` has changed tags and publishes a
 release automatically — that is the only supported way to cut one.
