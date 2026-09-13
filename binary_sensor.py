@@ -12,7 +12,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import DeviceState
@@ -73,12 +73,33 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator: WhiskerDataUpdateCoordinator = entry.runtime_data
-    entities = [
-        WhiskerTingBinarySensor(coordinator, serial, description)
-        for serial in (coordinator.data or {})
-        for description in BINARY_SENSOR_DESCRIPTIONS
-    ]
-    async_add_entities(entities)
+    known: set[str] = set()
+
+    @callback
+    def _add_new_devices() -> None:
+        """A Ting plugged in after setup used to be invisible until the entry
+        was reloaded by hand: the entity list was built once, here, from
+        whatever the first refresh happened to hold. The coordinator sees the
+        new serial on its very next poll, so listen for that instead."""
+        current = set(coordinator.data or {})
+        # Drop serials that have LEFT the account as well as adding the ones
+        # that arrived. The coordinator releases their registry rows, which
+        # takes the entities with them - keeping the serial here would mean a
+        # Ting removed and later plugged back in never came back, because it
+        # would no longer read as new.
+        known.intersection_update(current)
+        serials = current - known
+        if not serials:
+            return
+        known.update(serials)
+        async_add_entities(
+            WhiskerTingBinarySensor(coordinator, serial, description)
+            for serial in sorted(serials)
+            for description in BINARY_SENSOR_DESCRIPTIONS
+        )
+
+    _add_new_devices()
+    entry.async_on_unload(coordinator.async_add_listener(_add_new_devices))
 
 
 class WhiskerTingBinarySensor(WhiskerTingEntity, BinarySensorEntity):

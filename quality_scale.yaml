@@ -35,21 +35,25 @@ rules:
       command on a Ting, which reports and does not actuate.
   appropriate-polling: done
   brands:
-    status: todo
+    status: done
     comment: >-
-      No logo or icon in home-assistant/brands, and none committed here.
-      validate.yml passes `ignore: brands` to hacs/action for exactly this
-      reason — until a brands PR is accepted the check can only fail, and a
-      gate that can only fail is not a gate. Re-enable it the day one lands.
+      brand/icon.png and brand/icon@2x.png are committed at the repository
+      root, which under content_in_root is the exact path both HACS's brands
+      validator and Home Assistant's own /api/brands/integration/ route read;
+      a custom integration serves its own brand images and needs no
+      home-assistant/brands PR. validate.yml no longer passes `ignore: brands`
+      — the check runs and is enforced. This row said the opposite of all of
+      that until #9's pass re-read it.
   common-modules: done
   config-flow: done
   config-flow-test-coverage:
     status: todo
     comment: >-
-      There are no tests in this repo at all. See #9 — the unit suite that
-      covered auth.py and signalr_protocol.py was deleted with jrackerby/HA's
-      config surface (GH-711) and never carried across in the extraction.
-      Config-flow coverage was never written even then.
+      The extraction's lost unit suite is back under tests/ (#9), but it covers
+      auth.py and signalr_protocol.py only. Config-flow coverage was never
+      written even in jrackerby/HA, and needs
+      pytest-homeassistant-custom-component to drive the flow — out of scope
+      for a suite whose two modules import no homeassistant at all.
   dependency-transparency:
     status: done
     comment: >-
@@ -88,14 +92,17 @@ rules:
       rather than that alias, so the typing is looser than core's convention
       even though the storage is correct.
   test-before-configure:
-    status: todo
+    status: done
     comment: >-
-      The user step validates Cognito plus one REST GET and never touches the
-      SignalR hub, which is a different endpoint on a different credential and
-      403s without its own Origin header. An entry can be created green while
-      the stream cannot connect at all. See #10 — this is LAW §9's setup-check
-      rule: a check on the wrong channel certifies nothing, and certifies it
-      green.
+      The user step certifies BOTH channels. Cognito plus one REST GET as
+      before, then `_probe_signalr` opens one real connection to the SignalR
+      hub against the first device — handshake plus InitializeStreaming, on
+      the hub's own `custom:api_key` credential and Origin header — and fails
+      the step with `cannot_connect_stream` if the hub refuses. It does not
+      wait for a reading: voltage arrives when the hub sends it, so waiting
+      would make the verdict depend on timing rather than reachability. An
+      account with no Ting on it skips the probe, there being no station to
+      subscribe to. Closed by #10.
   test-before-setup:
     status: done
     comment: >-
@@ -119,23 +126,32 @@ rules:
   docs-configuration-parameters: done
   docs-installation-parameters: done
   entity-unavailable:
-    status: todo
+    status: done
     comment: >-
-      The coordinator carries the last good payload forward on every REST
-      failure, with no ceiling, so last_update_success never goes false and a
-      fire-hazard flag keeps publishing the last state it saw as though it were
-      current. See #11. LAW §15's "apply a rule where it governs" puts this
-      squarely in scope here — unlike household_state's never-raise contract,
-      this integration has a service to lose.
+      The carry-forward is BOUNDED. A transient REST miss still returns the
+      last payload — a hiccup is not the device being gone — but past
+      MAX_CARRY_FORWARD_POLLS consecutive failures the coordinator raises
+      UpdateFailed, last_update_success goes false and every entity goes
+      unavailable, because for a fire-hazard flag "stale" and "clear" are not
+      the same fact. The voltage callback is gated on the same state, or a
+      live socket calling async_set_updated_data would silently undo the
+      unavailability and republish REST-sourced hazard flags nothing had
+      refreshed. LAW §15's "apply a rule where it governs": unlike
+      household_state's never-raise contract, this integration reads a cloud
+      that IS its subject and has a service to lose. Closed by #11.
   integration-owner: done
   log-when-unavailable:
-    status: todo
+    status: done
     comment: >-
-      Half satisfied. The REST half is correct — one warning at the dwell, one
-      info on recovery, gated on an exact count so it cannot repeat. The
-      websocket half is not: websocket.py logs on every failed connect and
-      every reconnect attempt, so a hub outage writes a line per backoff cycle
-      for as long as it lasts. See #11.
+      Both halves. The REST half was already correct — one warning at the
+      dwell, one info on recovery, gated on an exact count so it cannot
+      repeat. The websocket half now dedups on a stable condition token per
+      station, "up" or "down" and nothing else: one warning when the stream is
+      lost, one info when it comes back, however many backoff cycles run in
+      between. LAW §15 is explicit that a once-only log deduped on its own
+      MESSAGE is not once-only — the attempt number and the backoff delay stay
+      in the DEBUG line, where repetition is the point, and never in the
+      compared token. Closed by #11.
   parallel-updates:
     status: done
     comment: >-
@@ -148,7 +164,12 @@ rules:
       revalidates against Cognito before updating the entry in place.
   test-coverage:
     status: todo
-    comment: No tests in this repo. See #9.
+    comment: >-
+      No longer zero: tests/ carries the recovered unit suites for auth.py and
+      signalr_protocol.py and validate.yml runs them (#9). This rule wants the
+      integration's own setup and teardown covered, which needs
+      pytest-homeassistant-custom-component and is a separate, larger job;
+      neither module under test imports homeassistant.
 
   # -------------------------------------------------------------------- GOLD
   devices:
@@ -172,11 +193,14 @@ rules:
   docs-troubleshooting: todo
   docs-use-cases: todo
   dynamic-devices:
-    status: todo
+    status: done
     comment: >-
-      Both platforms build their entity list once at setup, so a Ting added to
-      the account later never appears until the entry is reloaded by hand.
-      See #12.
+      Both platforms register a coordinator listener that adds entities for
+      serials it has not seen, so a Ting plugged in after setup appears on the
+      next poll instead of waiting for a hand reload. The coordinator opens a
+      SignalR socket for the new station on the same pass — per-station, not
+      behind one global connected flag, which was why a later device got no
+      socket at all. Closed by #12.
   entity-category: done
   entity-device-class: done
   entity-disabled-by-default:
@@ -204,10 +228,13 @@ rules:
       fallback in websocket.py, which today only logs a warning that a live
       install has to be reading the log to notice.
   stale-devices:
-    status: todo
+    status: done
     comment: >-
-      A device removed from the Whisker account leaves its registry row behind
-      forever; its entities merely go unavailable. See #12.
+      A serial that disappears from the account has its device registry row
+      released via async_update_device(remove_config_entry_id=...) — not
+      async_remove_device, since the row is only ours to delete if no other
+      entry still claims it — and its socket closed. Leaving the row behind
+      made a removed device read exactly like a cloud outage. Closed by #12.
 
   # ---------------------------------------------------------------- PLATINUM
   async-dependency:

@@ -52,6 +52,13 @@ One device per Ting on the account.
 
 - **Cloud only.** No account, no internet, no entities. There is no local path
   to fall back to.
+- **Entities go unavailable in a sustained outage, on purpose.** A brief REST
+  failure carries the last reading forward — a hiccup is not the plug being
+  gone — but after ten consecutive failed polls every entity goes
+  `unavailable` rather than keep publishing a reading nobody can date. For a
+  fire-hazard flag, *stale* and *clear* are not the same fact, and an entity
+  that keeps showing the last value it saw gives you no way to tell them
+  apart. Write availability into any automation that acts on these flags.
 - **The live-voltage message shape is inferred.** The push carries four float64
   values whose order is not documented. `websocket.py` tries structured field
   names first and falls back to positional floats, logging at `WARNING` when it
@@ -67,6 +74,16 @@ One device per Ting on the account.
 the Ting account. There is no separate integration credential — this signs in
 as the mobile app does. One config entry per Whisker account; a second attempt
 with the same account aborts.
+
+Setup tests **both** channels before it creates the entry: the Cognito sign-in
+and REST account read, and then one real connection to the SignalR voltage hub,
+which is a different endpoint on a different credential. If the hub refuses,
+setup fails and says so specifically — a green entry whose live stream cannot
+connect is worse than no entry at all.
+
+**Tings added to the account later appear on their own**, on the next poll, and
+one removed from the account takes its device and entities with it. Neither
+needs a reload.
 
 **Options** (*Settings → Devices & Services → Whisker Ting → Configure*) carry
 one setting: **poll interval**, 30–3600 seconds, default 60. It governs the

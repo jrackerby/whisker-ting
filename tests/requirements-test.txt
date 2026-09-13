@@ -1,0 +1,25 @@
+# Test dependencies, declared BESIDE the suite - LAW §15.
+#
+# A suite that only ever ran in a shared venv imports whatever that venv
+# carried for other reasons, and the first clean runner is where it finds out.
+# These two files did exactly that in jrackerby/HA. The same list pasted into
+# .github/workflows/validate.yml would be a SECOND copy: stale on the next
+# import added, and failing there reads as a broken test rather than a missing
+# declaration. CI installs from this file and from nothing else.
+#
+# tests/test_requirements_declared.py proves this list still covers every
+# third-party import the suite reaches, by AST, against sys.stdlib_module_names.
+#
+# NOT pytest-homeassistant-custom-component, deliberately. Both modules under
+# test are pure - neither imports homeassistant - so the suite needs no HA test
+# harness. Config-flow and coordinator coverage does, and is a separate, larger
+# job: quality_scale.yaml keeps config-flow-test-coverage and test-coverage at
+# `todo` either way.
+pytest>=8.0
+
+# signalr_protocol.py's codec, and manifest.json's only runtime requirement.
+msgpack>=1.0.0
+
+# auth.py imports aiohttp at module scope, so loading it for the SRP
+# primitives pulls this in even though none of those checks does any I/O.
+aiohttp>=3.9
