@@ -28,6 +28,7 @@
     "error": {
       "invalid_auth": "Invalid email or password.",
       "cannot_connect": "Could not reach the Whisker Ting service.",
+      "cannot_connect_stream": "Signed in, but the Whisker Ting voltage hub refused the connection. The account is fine; the real-time stream this integration runs on is not reachable. Check outbound access to signalr.api.wskr.io and try again.",
       "unknown": "Unexpected error."
     },
     "abort": {

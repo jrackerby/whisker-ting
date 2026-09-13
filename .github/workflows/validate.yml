@@ -87,6 +87,42 @@ jobs:
       - name: check the gap list against home-assistant/core
         run: python3 .github/scripts/check_quality_scale.py
 
+  # This repository had ZERO tests. auth.py and signalr_protocol.py were written
+  # with unit suites -- tools/test_whisker_ting_srp.py and
+  # tools/test_whisker_ting_signalr.py in jrackerby/HA -- which were deleted
+  # when that repo retired its config surface (HA@1cc69bc6, GH-711) and never
+  # carried across in the extraction. Both module headers went on citing them
+  # by path. They are restored under tests/ and this is the job that runs them.
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # 3.12+ is not optional: __init__.py uses a PEP 695 `type` statement,
+          # and pytest imports it (see the working-directory note below).
+          python-version: "3.13"
+
+      # LAW §15: the declaration lives BESIDE the suite and CI installs from
+      # THAT file. A list pasted in here would be a second copy, stale on the
+      # next import added, and its failure would read as a broken test rather
+      # than a missing declaration. tests/test_requirements_declared.py checks
+      # by AST that this file still covers what the suite imports.
+      - run: pip install -r tests/requirements-test.txt
+
+      # RUN FROM INSIDE tests/, NOT FROM THE ROOT. hacs.json sets
+      # content_in_root, so the repository root holds __init__.py and IS a
+      # Python package. pytest turns any collected directory carrying an
+      # __init__.py into a Package node and imports it during setup, so a run
+      # rooted at the repo imports the integration's __init__.py, which imports
+      # homeassistant, which is not installed here -- 20 collection errors that
+      # say nothing about the code. Measured: --import-mode=importlib does NOT
+      # avoid it; only starting collection below the root does.
+      - name: run the unit suite
+        working-directory: tests
+        run: python3 -m pytest . -q
   hacs:
     runs-on: ubuntu-latest
     timeout-minutes: 15

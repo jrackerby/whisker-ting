@@ -160,6 +160,10 @@ class WhiskerWebSocket:
         self._tasks: list[asyncio.Task] = []
         self._first_data = asyncio.Event()
         self._last_data_at: datetime | None = None
+        # Why the last connect attempt failed, for the manager's one-per-
+        # condition log line. Detail belongs in the MESSAGE; never in the
+        # token the dedup compares (LAW §15).
+        self.last_error: str | None = None
 
     @property
     def connected(self) -> bool:
@@ -180,7 +184,10 @@ class WhiskerWebSocket:
             )
             error = sr.parse_handshake_response(handshake_text)
             if error:
-                _LOGGER.error("SignalR handshake refused for station %s: %s", self._station_id, error)
+                self.last_error = f"handshake refused: {error}"
+                _LOGGER.debug(
+                    "SignalR handshake refused for station %s: %s", self._station_id, error
+                )
                 self._connected = False
                 return False
 
@@ -198,10 +205,17 @@ class WhiskerWebSocket:
                 asyncio.create_task(self._ping_loop()),
                 asyncio.create_task(self._stale_check_loop()),
             ]
-            _LOGGER.info("Connected to SignalR hub for station %s", self._station_id)
+            _LOGGER.debug("Connected to SignalR hub for station %s", self._station_id)
             return True
         except Exception as err:
-            _LOGGER.error("Failed to connect to SignalR hub for station %s: %s", self._station_id, err)
+            # NOT logged at error here, and not logged once per attempt
+            # anywhere. A hub outage drives this every backoff cycle for as
+            # long as it lasts, which is the log-when-unavailable defect
+            # (#11). The manager owns the condition and logs the crossing.
+            self.last_error = f"{type(err).__name__}: {err}"
+            _LOGGER.debug(
+                "Failed to connect to SignalR hub for station %s: %s", self._station_id, err
+            )
             self._connected = False
             return False
 
@@ -239,7 +253,10 @@ class WhiskerWebSocket:
             if msg.type == aiohttp.WSMsgType.BINARY:
                 self._handle_binary(msg.data)
             elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
-                _LOGGER.warning("SignalR socket closed/error for station %s: %s", self._station_id, msg.type)
+                self.last_error = f"socket {msg.type.name.lower()}"
+                _LOGGER.debug(
+                    "SignalR socket closed/error for station %s: %s", self._station_id, msg.type
+                )
                 self._connected = False
                 break
 
@@ -276,7 +293,10 @@ class WhiskerWebSocket:
             if not self._connected or self._shutting_down:
                 break
             if self._last_data_at and (datetime.now() - self._last_data_at).total_seconds() > STALE_DATA_THRESHOLD:
-                _LOGGER.warning("station %s: no data in %ss, reconnecting", self._station_id, STALE_DATA_THRESHOLD)
+                self.last_error = f"no data in {STALE_DATA_THRESHOLD}s"
+                _LOGGER.debug(
+                    "station %s: no data in %ss, reconnecting", self._station_id, STALE_DATA_THRESHOLD
+                )
                 self._connected = False
                 if self._on_disconnect:
                     self._on_disconnect(self._station_id)
@@ -308,9 +328,33 @@ class WhiskerWebSocketManager:
         self._reconnect_tasks: dict[str, asyncio.Task] = {}
         self._reconnect_attempts: dict[str, int] = {}
         self._shutting_down = False
+        # The last CONDITION logged per station - "up" or "down" and nothing
+        # else. LAW §15: a once-only log deduped on its own message is not
+        # once-only, because a count or a delay in the compared string turns
+        # one condition into a new line on every cycle. The attempt number and
+        # the backoff delay stay in the DEBUG line, where repetition is the
+        # point.
+        self._logged_condition: dict[str, str] = {}
 
     def get_voltage_data(self, station_id: str) -> VoltageData | None:
         return self._voltage_data.get(station_id)
+
+    def _note_condition(self, station_id: str, up: bool, detail: str | None = None) -> None:
+        token = "up" if up else "down"
+        previous = self._logged_condition.get(station_id)
+        if previous == token:
+            return
+        self._logged_condition[station_id] = token
+        if not up:
+            _LOGGER.warning(
+                "Whisker Ting voltage stream lost for station %s (%s); reconnecting with backoff",
+                station_id,
+                detail or "reason not reported",
+            )
+        elif previous is None:
+            _LOGGER.info("Connected to the Whisker Ting voltage stream for station %s", station_id)
+        else:
+            _LOGGER.info("Whisker Ting voltage stream reconnected for station %s", station_id)
 
     def _handle_voltage_update(self, station_id: str, data: VoltageData) -> None:
         self._voltage_data[station_id] = data
@@ -321,7 +365,8 @@ class WhiskerWebSocketManager:
     def _handle_disconnect(self, station_id: str) -> None:
         if self._shutting_down:
             return
-        self._connections.pop(station_id, None)
+        dropped = self._connections.pop(station_id, None)
+        self._note_condition(station_id, up=False, detail=dropped.last_error if dropped else None)
         if station_id not in self._reconnect_tasks or self._reconnect_tasks[station_id].done():
             self._reconnect_tasks[station_id] = asyncio.create_task(self._reconnect(station_id))
 
@@ -331,7 +376,9 @@ class WhiskerWebSocketManager:
             return
         attempts = self._reconnect_attempts.get(station_id, 0)
         delay = min(RECONNECT_MIN_DELAY * (RECONNECT_BACKOFF_FACTOR**attempts), RECONNECT_MAX_DELAY)
-        _LOGGER.info("Reconnecting to station %s in %.0fs (attempt %d)", station_id, delay, attempts + 1)
+        _LOGGER.debug(
+            "Reconnecting to station %s in %.0fs (attempt %d)", station_id, delay, attempts + 1
+        )
         await asyncio.sleep(delay)
         if self._shutting_down:
             return
@@ -347,7 +394,9 @@ class WhiskerWebSocketManager:
         )
         if await ws.connect():
             self._connections[station_id] = ws
+            self._note_condition(station_id, up=True)
         elif not self._shutting_down:
+            self._note_condition(station_id, up=False, detail=ws.last_error)
             self._reconnect_tasks[station_id] = asyncio.create_task(self._reconnect(station_id))
 
     async def connect_device(self, api_key: str, user_id: int, station_id: str) -> bool:
@@ -366,8 +415,32 @@ class WhiskerWebSocketManager:
         )
         if await ws.connect():
             self._connections[station_id] = ws
+            self._note_condition(station_id, up=True)
             return True
+        self._note_condition(station_id, up=False, detail=ws.last_error)
         return False
+
+    async def disconnect_device(self, station_id: str) -> None:
+        """Drop one station - its Ting has left the account. Cancel the
+        reconnect first, or it races the disconnect and reopens the socket."""
+        # Shut the socket FIRST. Cancelling the reconnect while a live receive
+        # loop is still running lets that loop call _handle_disconnect and
+        # schedule a fresh reconnect behind us; ws.disconnect() sets the
+        # socket's own shutting-down flag, which is what stops that callback.
+        ws = self._connections.pop(station_id, None)
+        if ws:
+            await ws.disconnect()
+        task = self._reconnect_tasks.pop(station_id, None)
+        if task:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        self._credentials.pop(station_id, None)
+        self._voltage_data.pop(station_id, None)
+        self._reconnect_attempts.pop(station_id, None)
+        self._logged_condition.pop(station_id, None)
 
     async def disconnect_all(self) -> None:
         self._shutting_down = True
@@ -382,6 +455,7 @@ class WhiskerWebSocketManager:
         for station_id, ws in list(self._connections.items()):
             await ws.disconnect()
             del self._connections[station_id]
+        self._logged_condition.clear()
 
     async def wait_for_data(self, station_id: str, timeout: float = 5.0) -> bool:
         ws = self._connections.get(station_id)

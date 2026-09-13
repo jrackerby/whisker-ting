@@ -7,11 +7,14 @@ Python ports). Pure and network-adjacent-only: the crypto steps take no
 HomeAssistant imports, so they are testable against fixed vectors with no
 live Cognito call.
 
-THERE IS NO SUCH TEST HERE. This header used to name
-`tools/test_whisker_ting_srp.py` in jrackerby/HA; that file was added with
-the component (HA@beacbba3) and deleted when that repo retired its config
-surface (HA@1cc69bc6, GH-711), and the extraction into this repo never
-carried it across. Restoring it is #9.
+The test is `tests/test_srp.py`, run by validate.yml's `tests` job. It was
+written with the component as `tools/test_whisker_ting_srp.py` in
+jrackerby/HA (HA@beacbba3), deleted when that repo retired its config
+surface (HA@1cc69bc6, GH-711) and lost in the extraction into this repo;
+restored here by #9. What it proves is the padding, hashing and HKDF
+primitives against fixed vectors - NOT a live Cognito round-trip, which
+needs a real account and happens once, live, when the integration is added
+through the HA UI.
 """
 
 from __future__ import annotations

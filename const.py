@@ -56,6 +56,16 @@ CONF_SCAN_INTERVAL = "scan_interval"
 # a health problem before it has actually persisted.
 TRANSPORT_FAIL_DWELL = 3
 
+# THE CARRY-FORWARD HAS TO END. TRANSPORT_FAIL_DWELL only decides when the
+# coordinator SAYS the cloud is gone; this decides when it stops CLAIMING to
+# know. Past this many consecutive failed polls the coordinator raises
+# UpdateFailed, last_update_success goes false and every entity goes
+# unavailable - because for a fire-hazard flag "stale" and "clear" are not the
+# same fact, and an entity that keeps publishing the last value it saw offers
+# nothing that tells them apart. Deliberately several times the dwell: a cloud
+# that is merely slow should not blank the house.
+MAX_CARRY_FORWARD_POLLS = 10
+
 # No update in this long on a connected socket means the socket is dead in
 # a way the transport didn't tell us about yet (normal cadence is ~250ms).
 STALE_DATA_THRESHOLD = 30
